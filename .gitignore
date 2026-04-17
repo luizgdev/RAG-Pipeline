@@ -7,3 +7,7 @@ data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+calibracao_threshold.png
+calibrate_throshold.py
+test_downloader.py
+test_parser.py
