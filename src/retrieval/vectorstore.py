@@ -8,7 +8,7 @@ class ChromaVectorStore:
     def __init__(self, persist_directory: str = "data/processed/chroma_db"):
         self.persist_directory = persist_directory
         # Usamos o mesmo modelo de embedding da OpenAI
-        self.embeddings_model = get_embeddings_model()
+        self.embeddings = get_embeddings_model()
 
     def create_vectorstore(self, chunks: List[Document]):
         """Cria o banco vetorial a partir dos chunks e o salva no disco."""
