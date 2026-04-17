@@ -6,3 +6,4 @@ gradio
 python-dotenv
 ragas
 elevenlabs
+requests
