@@ -3,6 +3,7 @@ from typing import List
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 from langchain_experimental.text_splitter import SemanticChunker
+from src.retrieval.embeddings import get_embeddings_model
 
 class AphorismChunker:
     """
@@ -10,7 +11,7 @@ class AphorismChunker:
     Remove automaticamente marcadores de notas de rodapé e seus glossários.
     """
     def __init__(self, threshold: int = 85):
-        self.embeddings_model = OpenAIEmbeddings(model="text-embedding-3-small")
+        self.embeddings_model = get_embeddings_model()
         self.semantic_splitter = SemanticChunker(
             embeddings=self.embeddings_model,
             breakpoint_threshold_type="percentile",
