@@ -7,12 +7,13 @@ def download_pdf(url: str, output_path: str) -> str:
     Baixa um arquivo PDF de uma URL e o salva no caminho especificado.
     Se o arquivo já existir no destino, pula o download.
     """
-    # Converte a string do caminho para um objeto Path (Resolve problemas do Windows)
+    # Converte a string do caminho para um objeto Path
     dest_path = Path(output_path)
     
     # Garante que as pastas pai (ex: data/raw) existam antes de salvar
     dest_path.parent.mkdir(parents=True, exist_ok=True)
     
+    # Se o arquivo já existe, pula o download
     if dest_path.exists():
         print(f"O arquivo já existe em: {dest_path}")
         print("Pulando o download...")
@@ -20,8 +21,8 @@ def download_pdf(url: str, output_path: str) -> str:
         
     print(f"Iniciando o download do livro de: {url}")
     
+    # Requisição HTTP
     try:
-        # Timeout de 30s é uma boa prática em engenharia de software para evitar travamentos eternos
         response = requests.get(url, stream=True, timeout=30)
         response.raise_for_status() 
 
