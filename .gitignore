@@ -11,3 +11,4 @@ calibracao_threshold.png
 calibrate_throshold.py
 test_downloader.py
 test_parser.py
+test_rag.py
