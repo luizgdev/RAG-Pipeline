@@ -3,6 +3,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from src.generation.llm_factory import get_llm
 from src.retrieval.vectorstore import ChromaVectorStore
+from langchain_classic.retrievers import ContextualCompressionRetriever
+from src.retrieval.reranker import get_reranker_compressor
 
 # PROMPTS
 REFORMULATION_PROMPT = ChatPromptTemplate.from_messages([
@@ -49,10 +51,22 @@ class MeditacoesRAG:
         self.llm = get_llm()
         self.vector_store = ChromaVectorStore().load_vectorstore()
         
-        # Configuramos o retriever com o threshold
-        self.retriever = self.vector_store.as_retriever(
-            search_type="similarity_score_threshold",
-            search_kwargs={"k": 4, "score_threshold": 0.3}
+        # 1. Retriever padrão: 
+        # Aumentamos o 'k' para 15 para dar material de trabalho ao Reranker.
+        # Removemos o threshold aqui para não descartar possíveis respostas no primeiro estágio.
+        base_retriever = self.vector_store.as_retriever(
+            search_kwargs={"k": 15}
+        )
+        
+        # 2. Reranker:
+        # Inicializa o compressor que usará o modelo Cross-Encoder.
+        compressor = get_reranker_compressor(top_n=4)
+        
+        # 3. Retriever final:
+        # Envelopamos a busca base com a reordenação contextual.
+        self.retriever = ContextualCompressionRetriever(
+            base_compressor=compressor,
+            base_retriever=base_retriever
         )
         
         # Corrente de reformulação
@@ -68,11 +82,6 @@ class MeditacoesRAG:
         """
         Monta a corrente LCEL final que será invocada pelo Gradio.
         """
-        # 1. Reformula a pergunta baseada no histórico
-        # 2. Busca documentos
-        # 3. Formata contexto
-        # 4. Gera resposta
-        
         chain = (
             RunnablePassthrough.assign(
                 standalone_question=RunnableLambda(self._get_standalone_question)
