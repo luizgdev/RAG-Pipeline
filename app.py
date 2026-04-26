@@ -190,5 +190,13 @@ with gr.Blocks(title="Oráculo de Marco Aurélio") as demo:
 
 if __name__ == "__main__":
     port = int(os.getenv("GRADIO_SERVER_PORT", 7860))
-    server = os.getenv("GRADIO_SERVER_NAME", "127.0.0.1")
-    demo.launch(server_name=server, server_port=port, theme=gr.themes.Soft())
+    
+    print("\n" + "="*60)
+    print("🏛️  O ORÁCULO DE MARCO AURÉLIO ESTÁ ONLINE!")
+    print("="*60)
+    print("👉 ACESSE PELO SEU NAVEGADOR CLICANDO NO LINK ABAIXO:")
+    print(f"🔗 http://localhost:{port}")
+    print("="*60 + "\n")
+    
+    # Para contêineres Docker, precisamos forçar o binding em 0.0.0.0
+    demo.launch(server_name="0.0.0.0", server_port=port, theme=gr.themes.Soft(), quiet=True)
