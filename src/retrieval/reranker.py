@@ -1,7 +1,7 @@
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
 
-def get_reranker_compressor(top_n=4):
+def get_reranker_compressor(top_n=3):
     """
     Cria um compressor de Reranking usando um modelo Cross-Encoder.
     Ele vai pegar N documentos do banco vetorial e retornar apenas os 'top_n' melhores,
