@@ -1,0 +1,25 @@
+# Controle de Versão
+.git/
+.gitignore
+
+# Ambientes Virtuais e Dependências
+venv/
+env/
+.env
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+
+# Caches de Testes e Dados
+.pytest_cache/
+.ipynb_checkpoints/
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Diretórios que não precisam estar na imagem base (se montados via volume ou não essenciais)
+tests/
