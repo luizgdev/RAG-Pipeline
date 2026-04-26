@@ -1,0 +1,22 @@
+
+services:
+  rag-app:
+    build: .
+    container_name: marco_aurelio_rag
+    ports:
+      - "7860:7860"
+    volumes:
+      - ./data:/app/data
+      - ./src:/app/src
+      - ./utils:/app/utils
+      - ./app.py:/app/app.py
+    env_file:
+      - .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
