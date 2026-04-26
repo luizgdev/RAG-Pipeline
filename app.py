@@ -3,9 +3,11 @@ import os
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, AIMessage
 from src.generation.rag_chain import MeditacoesRAG
+from src.generation.audio import gerador_tts
+from utils.prompts import history_inicial
 
-# Carrega variáveis de ambiente
-load_dotenv()
+# Carrega variáveis de ambiente forçando a atualização do cache do Windows
+load_dotenv(override=True)
 
 # Inicializa o motor RAG
 print("🏛️ Despertando o Oráculo de Marco Aurélio...")
@@ -14,23 +16,19 @@ rag_chain = rag_engine.get_chain()
 
 def format_history_safe(gr_history):
     """
-    Lê o histórico no padrão nativo do Gradio 5+ (Dicionários ou Objetos OpenAI)
-    e converte para o formato rigoroso do LangChain.
+    Converte o histórico do Gradio para o formato Human/AI do LangChain.
     """
     lc_history = []
     for msg in gr_history:
-        # Se o Gradio entregar como um dicionário
         if isinstance(msg, dict):
             role = msg.get("role")
             content = msg.get("content", "")
-        # Se o Gradio entregar como um objeto interno (ChatMessage)
         elif hasattr(msg, "role"):
             role = msg.role
             content = msg.content
         else:
             continue
             
-        # Instancia as classes do LangChain
         if role == "user":
             lc_history.append(HumanMessage(content=str(content)))
         elif role == "assistant":
@@ -38,84 +36,159 @@ def format_history_safe(gr_history):
             
     return lc_history
 
-def chat_interface(message, history):
+def format_references(raw_docs):
     """
-    Função principal de processamento.
-    Retorna a resposta do bot e atualiza o painel de referências.
+    Formata os metadados e conteúdo para o painel de transparência.
     """
+    refs_text = ""
+    if not raw_docs:
+        return "Nenhum documento relevante foi encontrado para esta pergunta."
+    
+    for i, doc in enumerate(raw_docs, 1):
+        secao = doc.metadata.get('secao', 'Desconhecido')
+        licao = doc.metadata.get('licao', '?')
+        refs_text += f"### [{i}] {secao} | Lição {licao}\n"
+        refs_text += f"{doc.page_content}\n\n---\n"
+    return refs_text
+
+def processar_interacao(mensagem_texto, chat_history):
+    """
+    Fluxo de Texto: RAG Streaming.
+    """
+    input_final = mensagem_texto
+    
+    if not input_final:
+        yield "", chat_history, ""
+        return
+
     inputs = {
-        "question": message,
-        "history": format_history_safe(history)
+        "question": input_final,
+        "history": format_history_safe(chat_history)
     }
     
-    try:
-        result = rag_chain.invoke(inputs)
-        answer = result["answer"]
-        raw_docs = result["raw_docs"]
-        
-        refs_text = ""
-        if not raw_docs:
-            refs_text = "Nenhum documento relevante foi encontrado para esta pergunta."
-        else:
-            for i, doc in enumerate(raw_docs, 1):
-                secao = doc.metadata.get('secao', 'Desconhecido')
-                licao = doc.metadata.get('licao', '?')
-                refs_text += f"### [{i}] {secao} | Lição {licao}\n"
-                refs_text += f"{doc.page_content}\n\n---\n"
-        
-        return answer, refs_text
+    chat_history.append({"role": "user", "content": input_final})
+    chat_history.append({"role": "assistant", "content": ""})
     
-    except Exception as e:
-        error_msg = f"Ocorreu um erro ao consultar o oráculo: {str(e)}"
-        return error_msg, ""
+    resposta_acumulada = ""
+    referencias_finais = "Buscando referências no livro..."
+    
+    # Exibe o estado inicial (limpa o texto)
+    yield "", chat_history, referencias_finais
 
-# --- CONSTRUÇÃO DA INTERFACE ---
+    try:
+        for chunk in rag_chain.stream(inputs):
+            if "raw_docs" in chunk:
+                 referencias_finais = format_references(chunk["raw_docs"])
+            
+            if "answer" in chunk:
+                resposta_acumulada += chunk["answer"]
+                chat_history[-1]["content"] = resposta_acumulada
+                yield "", chat_history, referencias_finais
+                
+    except Exception as e:
+         chat_history[-1]["content"] = f"Erro no Oráculo: {str(e)}"
+         yield "", chat_history, ""
+
+def gerar_audio_manual(chat_history):
+    """
+    Acionada pelo botão: Gera áudio apenas da última resposta do chat.
+    Blindada contra TODOS os formatos multimodais do Gradio 5+.
+    """
+    if not chat_history:
+        return None
+    
+    ultima_msg = chat_history[-1]
+    texto_resposta = ""
+    
+    # 1. Se o Gradio enviar no formato Dicionário
+    if isinstance(ultima_msg, dict):
+        if ultima_msg.get("role") == "assistant":
+            texto_resposta = ultima_msg.get("content", "")
+            
+    # 2. Se o Gradio enviar no formato Clássico (Lista: [user, bot])
+    elif isinstance(ultima_msg, (list, tuple)) and len(ultima_msg) == 2:
+        texto_resposta = ultima_msg[1]
+        
+    # --- A BLINDAGEM MULTIMODAL CORRIGIDA ---
+    if isinstance(texto_resposta, (list, tuple)):
+        pedacos = []
+        for item in texto_resposta:
+            # Se for texto puro
+            if isinstance(item, str):
+                pedacos.append(item)
+            # Se for o novo formato de dicionário do Gradio [{'text': '...', 'type': 'text'}]
+            elif isinstance(item, dict) and "text" in item:
+                pedacos.append(item["text"])
+                
+        texto_resposta = " ".join(pedacos)
+        
+    # Garante que temos uma string limpa no final
+    texto_resposta = str(texto_resposta).strip()
+
+    # 3. Dispara para a ElevenLabs
+    if texto_resposta:
+        try:
+            audio_path_gerado = gerador_tts(texto_resposta, "imperador")
+            return audio_path_gerado
+        except Exception as e:
+            gr.Warning(f"Erro na ElevenLabs: {str(e)}")
+            return None
+            
+    return None
+
+
+# --- INTERFACE GRADIO ---
 with gr.Blocks(title="Oráculo de Marco Aurélio") as demo:
-    gr.Markdown("""
-    # 🏛️ Oráculo de Marco Aurélio
-    *Consulte a sabedoria das Meditações através de uma inteligência artificial acadêmica.*
-    """)
+    gr.Markdown("# 🏛️ Oráculo de Marco Aurélio")
+    gr.Markdown("*Consulte a sabedoria das Meditações através de uma IA acadêmica.*")
     
     with gr.Row():
-        # COLUNA DA ESQUERDA: Chat e Voz
         with gr.Column(scale=3):
-            # Deixamos o Chatbot limpo, sem forçar 'type'
-            chatbot = gr.Chatbot(show_label=False, height=500)
-            msg = gr.Textbox(
-                placeholder="Pergunte algo a Marco Aurélio...",
-                label="Sua pergunta",
-                container=False
-            )
+            chatbot = gr.Chatbot(value=history_inicial, show_label=False, height=450)
             
-            with gr.Accordion("🎧 Resposta em Áudio (Beta)", open=False):
-                audio_output = gr.Audio(label="Voz do Imperador", interactive=False)
-                gr.Markdown("*Integração com ElevenLabs em breve.*")
+            with gr.Group():
+                msg = gr.Textbox(placeholder="Digite sua pergunta...", show_label=False, container=False)
             
-            submit_btn = gr.Button("Consultar Oráculo", variant="primary")
-            clear = gr.ClearButton([msg, chatbot], value="Limpar Conversa")
+            with gr.Row():
+                submit_btn = gr.Button("Consultar Oráculo", variant="primary")
+                clear = gr.Button("Limpar Conversa", variant="secondary")
 
-        # COLUNA DA DIREITA: Auditoria RAG
+            with gr.Accordion("🎧 Voz do Imperador", open=True):
+                btn_audio = gr.Button("🔊 Ouvir Última Resposta", variant="secondary")
+                audio_output = gr.Audio(label="Player de Áudio", interactive=False, autoplay=True)
+
         with gr.Column(scale=2):
             gr.Markdown("### 🔍 Transparência RAG")
-            sources_output = gr.Markdown(
-                value="As referências do livro aparecerão aqui após a resposta.",
-                label="Fontes Consultadas"
-            )
+            sources_output = gr.Markdown(value="As referências aparecerão aqui.", label="Fontes")
 
-    def respond(message, chat_history):
-        bot_message, refs = chat_interface(message, chat_history)
-        
-        # O PULO DO GATO: Entregando exatamente o que o erro pediu (dicionários com role e content)
-        chat_history.append({"role": "user", "content": message})
-        chat_history.append({"role": "assistant", "content": bot_message})
-        
-        return "", chat_history, refs
-
-    submit_btn.click(respond, [msg, chatbot], [msg, chatbot, sources_output])
-    msg.submit(respond, [msg, chatbot], [msg, chatbot, sources_output])
+    # --- EVENTOS DE CHAT ---
+    submit_event = {
+        "fn": processar_interacao, 
+        "inputs": [msg, chatbot], 
+        "outputs": [msg, chatbot, sources_output] 
+    }
+    
+    # 1. Envio via botão azul
+    submit_btn.click(**submit_event)
+    
+    # 2. Envio via "Enter" no teclado
+    msg.submit(**submit_event)
+    
+    # 3. Limpar Conversa (Garante que tudo seja resetado)
+    clear.click(
+        fn=lambda: ("", history_inicial.copy(), "As referências aparecerão aqui.", None),
+        inputs=None,
+        outputs=[msg, chatbot, sources_output, audio_output]
+    )
+    
+    # --- Evento de Áudio Manual da ElevenLabs ---
+    btn_audio.click(
+        fn=gerar_audio_manual,
+        inputs=[chatbot],
+        outputs=[audio_output]
+    )
 
 if __name__ == "__main__":
     port = int(os.getenv("GRADIO_SERVER_PORT", 7860))
     server = os.getenv("GRADIO_SERVER_NAME", "127.0.0.1")
-    
     demo.launch(server_name=server, server_port=port, theme=gr.themes.Soft())
