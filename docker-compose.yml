@@ -1,17 +1,26 @@
 
+x-oraculo-base: &oraculo-base
+  build: .
+  ports:
+    - "7860:7860"
+  volumes:
+    - ./data:/app/data
+    - ./src:/app/src
+    - ./utils:/app/utils
+    - ./app.py:/app/app.py
+  env_file:
+    - .env
+  restart: unless-stopped
+
 services:
-  rag-app:
-    build: .
+  marco_aurelio_rag:
+    <<: *oraculo-base
     container_name: marco_aurelio_rag
-    ports:
-      - "7860:7860"
-    volumes:
-      - ./data:/app/data
-      - ./src:/app/src
-      - ./utils:/app/utils
-      - ./app.py:/app/app.py
-    env_file:
-      - .env
+
+  marco_aurelio_rag_gpu:
+    <<: *oraculo-base
+    container_name: marco_aurelio_rag_gpu
+    profiles: ["gpu"]
     deploy:
       resources:
         reservations:
@@ -19,4 +28,3 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    restart: unless-stopped
