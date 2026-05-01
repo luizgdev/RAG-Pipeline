@@ -1,5 +1,7 @@
 import os
 import re
+import tempfile
+import logging
 from openai import OpenAI
 from elevenlabs.client import ElevenLabs
 from dotenv import load_dotenv
@@ -31,7 +33,10 @@ def gerador_tts(texto, voice_key="imperador"):
         )
         
         # A resposta é um gerador de bytes, precisamos salvar manualmente
-        output_path = "resposta_imperador.mp3"
+        temp_file = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        output_path = temp_file.name
+        temp_file.close()
+        
         with open(output_path, "wb") as f:
             for chunk in response:
                 if chunk:
@@ -39,22 +44,30 @@ def gerador_tts(texto, voice_key="imperador"):
                     
         return output_path
     except Exception as e:
+        logging.error(f"Erro ao gerar áudio: {e}")
         raise
 
 def gerador_s2s(audio_path_usuario, voice_key="imperador"):
     """ElevenLabs: Speech-to-Speech (Voz do usuário -> Voz do Imperador diretamente)"""
-    with open(audio_path_usuario, "rb") as audio_file:
-        response = client_eleven.speech_to_speech.convert(
-            voice_id=VOICES.get(voice_key, VOICES["imperador"]),
-            audio=audio_file,
-            model_id="eleven_english_sts_v2",
-            output_format="mp3_44100_128",
-        )
+    try:
+        with open(audio_path_usuario, "rb") as audio_file:
+            response = client_eleven.speech_to_speech.convert(
+                voice_id=VOICES.get(voice_key, VOICES["imperador"]),
+                audio=audio_file,
+                model_id="eleven_english_sts_v2",
+                output_format="mp3_44100_128",
+            )
+            
+            temp_file = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+            output_path = temp_file.name
+            temp_file.close()
+            
+            with open(output_path, "wb") as f:
+                for chunk in response:
+                    if chunk:
+                        f.write(chunk)
         
-        output_path = "s2s_imperador.mp3"
-        with open(output_path, "wb") as f:
-            for chunk in response:
-                if chunk:
-                    f.write(chunk)
-    
-    return output_path
+        return output_path
+    except Exception as e:
+        logging.error(f"Erro ao gerar áudio S2S: {e}")
+        raise
