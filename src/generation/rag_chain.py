@@ -38,7 +38,8 @@ class MeditacoesRAG:
         self.intent_chain = INTENT_PROMPT | self.llm | StrOutputParser()
 
     def _get_standalone_question(self, inputs):
-        if not inputs.get("history") or len(inputs["history"]) == 0:
+        history = inputs.get("history", [])
+        if not history or len(history) < 2:
             return inputs["question"]
         return self.reformulation_chain.invoke(inputs)
 
@@ -49,7 +50,7 @@ class MeditacoesRAG:
         intencao = self.intent_chain.invoke({"question": pergunta}).strip().upper()
         
         # 2. Se for só um bate-papo, não faz busca vetorial! Devolve vazio.
-        if "CHAT" in intencao:
+        if intencao == "CHAT":
             return []
             
         # 3. Se for sobre o livro, faz o fluxo normal pesado (ChromaDB + BGE-M3)
