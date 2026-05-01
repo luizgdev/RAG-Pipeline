@@ -1,5 +1,4 @@
 from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
 from typing import List
 from src.retrieval.embeddings import get_embeddings_model
@@ -12,6 +11,12 @@ class ChromaVectorStore:
 
     def create_vectorstore(self, chunks: List[Document]):
         """Cria o banco vetorial a partir dos chunks e o salva no disco."""
+        import os
+        import shutil
+        if os.path.exists(self.persist_directory):
+            print("Limpando diretório existente do banco de dados vetorial...")
+            shutil.rmtree(self.persist_directory)
+            
         print("Criando e populando o banco de dados vetorial...")
         vectorstore = Chroma.from_documents(
             documents=chunks,
