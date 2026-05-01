@@ -1,5 +1,6 @@
 import gradio as gr
 import os
+import copy
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, AIMessage
 from src.generation.rag_chain import MeditacoesRAG
@@ -57,8 +58,9 @@ def processar_interacao(mensagem_texto, chat_history):
     """
     input_final = mensagem_texto
     
-    if not input_final:
-        yield "", chat_history, ""
+    if not input_final or not input_final.strip():
+        gr.Warning("Por favor, digite uma mensagem válida.")
+        yield "", chat_history, gr.update()
         return
 
     inputs = {
@@ -71,14 +73,16 @@ def processar_interacao(mensagem_texto, chat_history):
     
     resposta_acumulada = ""
     referencias_finais = "Buscando referências no livro..."
+    referencias_cacheadas = None
     
     # Exibe o estado inicial (limpa o texto)
     yield "", chat_history, referencias_finais
 
     try:
         for chunk in rag_chain.stream(inputs):
-            if "raw_docs" in chunk:
-                 referencias_finais = format_references(chunk["raw_docs"])
+            if "raw_docs" in chunk and referencias_cacheadas is None:
+                 referencias_cacheadas = format_references(chunk["raw_docs"])
+                 referencias_finais = referencias_cacheadas
             
             if "answer" in chunk:
                 resposta_acumulada += chunk["answer"]
@@ -176,7 +180,7 @@ with gr.Blocks(title="Oráculo de Marco Aurélio") as demo:
     
     # 3. Limpar Conversa (Garante que tudo seja resetado)
     clear.click(
-        fn=lambda: ("", history_inicial.copy(), "As referências aparecerão aqui.", None),
+        fn=lambda: ("", copy.deepcopy(history_inicial), "As referências aparecerão aqui.", None),
         inputs=None,
         outputs=[msg, chatbot, sources_output, audio_output]
     )
