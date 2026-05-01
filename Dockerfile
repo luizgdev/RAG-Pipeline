@@ -3,11 +3,6 @@ FROM python:3.11-slim
 # Evitar prompts interativos no apt-get
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Instalar dependências do sistema e ffmpeg para processamento de áudio
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
 
 # Configurar diretório de trabalho
 WORKDIR /app
