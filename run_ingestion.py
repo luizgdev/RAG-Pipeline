@@ -4,9 +4,9 @@ from dotenv import load_dotenv, find_dotenv
 
 # 1. CARREGAMENTO DE CREDENCIAIS
 print("Procurando variáveis de ambiente...")
-if not load_dotenv(find_dotenv()):
-    print("ERRO CRÍTICO: Arquivo .env não encontrado!")
-    sys.exit(1)
+load_dotenv(find_dotenv())
+if not os.getenv("OPENAI_API_KEY"):
+    sys.exit("Erro: OPENAI_API_KEY não encontrada.")
 print("Variáveis de ambiente carregadas com sucesso!")
 
 # 2. IMPORTS
