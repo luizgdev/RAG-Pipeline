@@ -1,7 +1,6 @@
 import re
 from typing import List
 from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings
 from langchain_experimental.text_splitter import SemanticChunker
 from src.retrieval.embeddings import get_embeddings_model
 
@@ -23,8 +22,8 @@ class AphorismChunker:
         Remove o bloco de notas de rodapé no final do texto e os marcadores inline.
         """
         # Passo 1: Guilhotina (Corta o glossário final)
-        # Regex: Lookbehind para pontuação (?<=[.!?"]), espaços \s+, Lookahead para nota (?=\[\s*\d+\s*\]\s+[A-Z])
-        parts = re.split(r'(?<=[.!?"])\s+(?=\[\s*\d+\s*\]\s+[A-Z])', text)
+        # Regex: Exige uma quebra de linha antes do marcador de nota, para evitar cortar citações no meio do texto
+        parts = re.split(r'(?<=[.!?"])\s*\n\s*(?=\[\s*\d+\s*\]\s+[A-Z])', text)
         main_text = parts[0] # Pegamos apenas a parte antes do primeiro corte
         
         # Passo 2: Pinça (Remove os marcadores ex: "[2]" ou "[ 1 ]" do meio do texto)
@@ -58,7 +57,7 @@ class AphorismChunker:
             
             j = 1
             while j < len(splits_licoes):
-                num_licao = splits_licoes[j]
+                num_licao = splits_licoes[j] + splits_licoes[j+1]
                 text_licao = splits_licoes[j+2].strip()
                 
                 # Limpa notas antes de criar o Documento
