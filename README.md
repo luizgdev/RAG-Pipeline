@@ -4,6 +4,7 @@
 
 *A fusão definitiva entre a vanguarda da Inteligência Artificial e a resiliência atemporal da sabedoria estoica.*
 
+[![Version](https://img.shields.io/badge/Version-1.1.0-blue?style=for-the-badge)](https://github.com/luizgdev/RAG-Pipeline)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
 [![LangChain](https://img.shields.io/badge/LangChain-Orchestration-121212?style=for-the-badge)](https://langchain.com)
@@ -12,6 +13,16 @@
 [![Linux](https://img.shields.io/badge/Linux-Debian-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://debian.org)
 
 </div>
+
+---
+
+## 🚀 O que há de novo na v1.1.0 (Changelog)
+
+- **UX Aprimorada**: Adição de popups nativos de alerta (Gradio Warnings) para entradas vazias, preservando o estado e o histórico do usuário.
+- **Concorrência de Áudio**: Refatoração do motor de TTS com arquivos temporários (`tempfile`), permitindo que múltiplos usuários gerem áudio simultaneamente sem sobrescrever arquivos ou causar falhas.
+- **Eficiência do RAG**: Prevenção de duplicação de dados no ChromaDB durante re-ingestões e refinamento na captura de metadados das lições (agora capturando letras como "1a", "1b").
+- **Roteamento Otimizado**: O classificador de intenção agora ignora saudações de boas-vindas do próprio assistente, poupando tokens e chamadas desnecessárias à LLM.
+- **Limpeza MLOps**: A imagem Docker foi otimizada com a remoção de dependências obsoletas como o FFmpeg local, já que toda a síntese de voz (TTS) ocorre externamente via API da ElevenLabs.
 
 ---
 
@@ -52,7 +63,7 @@ graph TD
 
 ## 🚀 Instalação e Execução (A Via do Docker)
 
-Buscando a excelência no controle de ambientes, o projeto foi arquitetado primariamente para rodar sobre **Contêineres Docker**. Isso garante que o motor de Reranking e a LLM operem com total paridade, independentemente do sistema hospedeiro.
+Buscando a excelência no controle de ambientes, o projeto foi arquitetado primariamente para rodar sobre **Contêineres Docker**. A nova arquitetura híbrida de perfis (*profiles*) atende tanto máquinas comuns quanto setups entusiastas.
 
 > [!IMPORTANT]
 > **Aviso de APIs:** O Oráculo requer comunicação com serviços externos. Antes de inicializar, garanta que você tenha acesso às chaves da **OpenAI**, **ElevenLabs** e **HuggingFace**.
@@ -70,14 +81,21 @@ cp .env.example .env
 ```
 
 ### 3. A Ascensão do Contêiner
-Compile a imagem blindada (baseada em Debian para preservar integridade de bibliotecas C/C++) e suba a aplicação:
+A imagem Docker foi otimizada na v1.1.0. Escolha um dos dois caminhos de execução abaixo dependendo do hardware disponível:
 
+#### Opção A: Execução Padrão (Recomendado para Avaliadores - Somente CPU)
+Executa a aplicação utilizando apenas os recursos da CPU. Ideal para testes universais.
 ```bash
-docker compose build
 docker compose up -d
 ```
 
-Acompanhe os logs de inicialização e ativação do Reranker local:
+#### Opção B: Execução com Aceleração de Hardware (NVIDIA GPU)
+Delega o processamento matricial (especialmente do Reranker `BGE-M3`) diretamente para a placa de vídeo, garantindo desempenho excepcional.
+```bash
+docker compose --profile gpu up -d
+```
+
+Acompanhe os logs de inicialização:
 ```bash
 docker compose logs -f
 ```
@@ -92,8 +110,6 @@ docker compose logs -f
 > [!IMPORTANT]
 > **Docker Desktop & NVIDIA:** O `docker-compose.yml` está configurado para executar **Pass-through de GPU NVIDIA**. Se o seu host for Windows, certifique-se de que o WSL2 e os drivers da NVIDIA estejam devidamente instalados e mapeados para o Docker Desktop.
 
-Essa delegação de hardware garante que o modelo de Reranking CrossEncoder (`BGE-M3`) rode nativamente sob aceleração CUDA, reduzindo o tempo de resposta do sistema drasticamente.
-
 ---
 
 ## 📂 Estrutura de Pastas
@@ -103,8 +119,8 @@ A arquitetura reflete os princípios de um pipeline avançado:
 ```text
 /
 ├── app.py                     # Entrypoint (Frontend Gradio)
-├── Dockerfile                 # Configuração de Imagem (Debian-based + FFmpeg)
-├── docker-compose.yml         # Orquestrador MLOps (GPU Host binding)
+├── Dockerfile                 # Configuração de Imagem (Debian-based otimizada)
+├── docker-compose.yml         # Orquestrador MLOps (Profiles híbridos)
 ├── data/
 │   └── processed/chroma_db/   # Vetores Persistidos (ChromaDB)
 ├── src/
